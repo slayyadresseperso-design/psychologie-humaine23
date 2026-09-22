@@ -77,15 +77,29 @@ NEXT_PUBLIC_SITE_URL=https://votre-domaine.com
 ### Livraison du fichier après paiement
 
 Le PDF ne doit **jamais** se trouver dans `public/` (il serait accessible sans payer).
-Dans `app/api/webhook/route.ts`, un `TODO` indique où brancher :
 
-1. la génération d'un lien de téléchargement signé et à durée limitée, à partir d'un
-   stockage privé (S3, Cloudflare R2, Supabase Storage...) référencé par la variable
-   `PROTECTED_EBOOK_SOURCE_PATH` ;
-2. l'envoi de ce lien par e-mail (par exemple via Resend, clé `RESEND_API_KEY`).
+C'est maintenant branché automatiquement : à la réception de l'événement Stripe
+`checkout.session.completed`, `app/api/webhook/route.ts` génère un lien de
+téléchargement signé et valable 7 jours (`lib/download-token.ts`), puis l'envoie
+par e-mail via Resend (`lib/email.ts`). Le lien pointe vers
+`app/api/download/[token]/route.ts`, qui vérifie la signature avant de servir
+`assets/ebook.pdf` (dossier privé, jamais exposé publiquement).
 
-Tant que cette étape n'est pas branchée, le paiement fonctionne mais aucun e-mail
-n'est envoyé automatiquement — pensez-y avant la mise en ligne.
+Pour l'activer :
+
+1. Placez votre PDF final à `assets/ebook.pdf` (voir `assets/README.txt`).
+2. Créez un compte sur https://resend.com, récupérez une `RESEND_API_KEY`
+   (l'adresse d'envoi par défaut `onboarding@resend.dev` fonctionne sans
+   configuration ; vérifiez votre propre domaine pour la production).
+3. Générez une valeur aléatoire pour `DOWNLOAD_TOKEN_SECRET`
+   (ex. `openssl rand -hex 32`).
+4. Renseignez ces variables dans `.env.local` (ou sur Vercel) :
+
+```
+DOWNLOAD_TOKEN_SECRET=...
+RESEND_API_KEY=...
+RESEND_FROM_ADDRESS=Psychologie Humaine <onboarding@resend.dev>
+```
 
 ## Build et déploiement
 
